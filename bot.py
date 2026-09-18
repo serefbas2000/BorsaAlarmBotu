@@ -1,30 +1,18 @@
-import asyncio
+import os
 import yfinance as yf
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Bot
 
-TOKEN = "8809444190:AAFVwcptDodEoYWB51_TySfxKeowT2W2Qtc"
+TOKEN = os.getenv("BOT_TOKEN")
+
+CHAT_ID = None
 
 HEDEF_FIYAT = 30.50
-CHAT_ID = None
-alarm_hazir = True
-
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global CHAT_ID
-
-    CHAT_ID = update.effective_chat.id
-
-    await update.message.reply_text(
-        "🤖 YEOTK Alarm Botu aktif!\n\n"
-        "🎯 Alarm seviyesi: 30,50 TL\n"
-        "📈 YEOTK 30,50 TL'yi yukarı geçerse sana haber vereceğim."
-    )
+HISSE = "YEOTK.IS"
 
 
 def fiyat_getir():
     try:
-        hisse = yf.Ticker("YEOTK.IS")
+        hisse = yf.Ticker(HISSE)
         veri = hisse.history(period="1d", interval="1m")
 
         if veri.empty:
@@ -37,55 +25,38 @@ def fiyat_getir():
         return None
 
 
-async def alarm_kontrol():
-    global alarm_hazir
+def main():
+    fiyat = fiyat_getir()
 
-    while True:
-        try:
-            if CHAT_ID is not None:
-                fiyat = await asyncio.to_thread(fiyat_getir)
+    if fiyat is None:
+        print("Fiyat alınamadı.")
+        return
 
-                if fiyat is not None:
-                    print(f"YEOTK: {fiyat:.2f} TL")
+    print(f"YEOTK fiyatı: {fiyat:.2f} TL")
 
-                    if fiyat <= HEDEF_FIYAT:
-                        alarm_hazir = True
+    if fiyat > HEDEF_FIYAT:
+        print("Alarm koşulu oluştu.")
 
-                    elif fiyat > HEDEF_FIYAT and alarm_hazir:
-                        await application.bot.send_message(
-                            chat_id=CHAT_ID,
-                            text=(
-                                "🚨 YEOTK ALARM!\n\n"
-                                f"📈 Fiyat: {fiyat:.2f} TL\n"
-                                "🎯 30,50 TL seviyesi yukarı geçildi!"
-                            )
-                        )
+        if TOKEN and CHAT_ID:
+            import asyncio
 
-                        alarm_hazir = False
+            async def mesaj_gonder():
+                bot = Bot(token=TOKEN)
 
-        except Exception as e:
-            print("Alarm hatası:", e)
+                await bot.send_message(
+                    chat_id=CHAT_ID,
+                    text=(
+                        "🚨 YEOTK ALARM!\n\n"
+                        f"📈 Fiyat: {fiyat:.2f} TL\n"
+                        "🎯 30,50 TL seviyesi yukarı geçildi!"
+                    )
+                )
 
-        await asyncio.sleep(30)
+            asyncio.run(mesaj_gonder())
 
-
-async def main():
-    global application
-
-    application = Application.builder().token(TOKEN).build()
-
-    application.add_handler(CommandHandler("start", start))
-
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
-
-    print("🤖 YEOTK Alarm Botu çalışıyor...")
-
-    asyncio.create_task(alarm_kontrol())
-
-    await asyncio.Event().wait()
+    else:
+        print("Alarm koşulu oluşmadı.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
