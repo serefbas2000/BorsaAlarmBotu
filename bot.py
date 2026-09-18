@@ -3,6 +3,7 @@ import json
 import urllib.request
 
 TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = 1013671519
 
 if not TOKEN:
     print("BOT_TOKEN bulunamadı.")
